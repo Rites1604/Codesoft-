@@ -1,0 +1,55 @@
+import pandas as pd
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.metrics.pairwise import cosine_similarity
+from sklearn.preprocessing import MultiLabelBinarizer
+
+# Step 1: Load the dataset
+movies_df = pd.read_csv('IMDB-Movie-Data.csv')
+
+# Ensure the genre column is in a list format
+movies_df['Genre'] = movies_df['Genre'].apply(lambda x: x.split(','))
+
+# Step 2: Feature Extraction
+# Description - TF-IDF Vectorization
+tfidf_vectorizer = TfidfVectorizer(stop_words='english')
+tfidf_matrix = tfidf_vectorizer.fit_transform(movies_df['Description'])
+
+# Genre - One-hot Encoding
+mlb = MultiLabelBinarizer()
+genre_matrix = mlb.fit_transform(movies_df['Genre'])
+
+# Compute Similarity
+# Description Similarity
+description_similarity = cosine_similarity(tfidf_matrix, tfidf_matrix)
+# Genre Similarity
+genre_similarity = cosine_similarity(genre_matrix, genre_matrix)
+
+# Combine similarities (simple average for demonstration)
+combined_similarity = (description_similarity + genre_similarity) / 2
+
+
+# Step 3: Recommend Movies Function
+def recommend_movies(title, combined_similarity_matrix, movies_df, top_n=5):
+    # Find the movie index
+    try:
+        idx = movies_df.index[movies_df['Title'] == title].tolist()[0]
+    except IndexError:
+        return "Movie not found."
+
+    # Get movie similarities
+    movie_similarities = list(enumerate(combined_similarity_matrix[idx]))
+
+    # Sort movies based on similarity scores
+    movie_similarities = sorted(movie_similarities, key=lambda x: x[1], reverse=True)
+
+    # Get the top N most similar movies
+    recommended_movie_indices = [i[0] for i in movie_similarities[1:top_n + 1]]
+
+    # Return the top N most similar movies
+    return movies_df['Title'].iloc[recommended_movie_indices]
+
+
+# Example usage
+title = 'Dear Zindagi'  # This should be replaced with a title from your dataset
+recommended_movies = recommend_movies(title, combined_similarity, movies_df)
+print("Recommended Movies:\n", recommended_movies)
